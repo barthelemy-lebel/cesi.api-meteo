@@ -1,0 +1,41 @@
+{% block content %}
+<div class="left">
+  <form method="post" id="sensorForm">
+    {% csrf_token %}
+    {{ form.sensor_id.label_tag }} {{ form.sensor_id }}
+    <button type="submit">Sélectionner</button>
+    <button type="submit" onClick="window.location.reload()">Recharger</button>
+  </form>
+</div>
+  
+  <div class="right">
+    {% if history %}
+    <h2>Historique du capteur sélectionné</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Temperature (en °C)</th>
+          <th>Humidité (en %)</th>
+          <th>Batterie (en %)</th>
+          <th>Signale RSSI</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in history %}
+          <tr>
+            <td>{{ entry.temperature }}</td>
+            {% if humid_avg != 0 %}
+              <td>{{ entry.humidity }}</td>
+            {% endif %}
+            <td>{{ entry.battery_level }}</td>
+            <td>{{ entry.signal_rssi }}</td>
+            <td>{{ entry.update_time }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+  </div>
+  
+{% endblock %}

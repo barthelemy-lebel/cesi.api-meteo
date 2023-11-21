@@ -1,0 +1,83 @@
+{% block content %}
+  <form method="post" id="sensorForm">
+    {% csrf_token %}
+    {{ form.sensor_id.label_tag }} {{ form.sensor_id }}
+    <button type="submit">Sélectionner</button>
+    <button action="reload" onClick="window.location.reload();">Recharger</button>
+  </form>
+
+  <div>
+    <h2>Graphique de Variation de Température</h2>
+    <canvas id="temperatureChart"></canvas>
+  </div>
+
+  <div>
+    <h2>Graphique de Variation d'Humidité</h2>
+    <canvas id="humidityChart"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+  <script>
+    $(document).ready(function () {
+      $('#sensorForm').submit(function (e) {
+        e.preventDefault();
+        $.ajax({
+          type: 'POST',
+          url: '{% url "home" %}',
+          data: $('#sensorForm').serialize(),
+          dataType: 'json',
+          success: function (data) {
+            
+            // Créez les graphiques avec Chart.js
+            createChart('temperatureChart', 'Graphique de Variation de Température', data.temperature);
+            createChart('humidityChart', 'Graphique de Variation d\'Humidité', data.humidity);
+          }
+        });
+      });
+
+      function createChart(canvasId, title, data) {
+        var ctx = document.getElementById(canvasId).getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: data.map(entry => entry.x),
+              datasets: [{
+                label: title,
+                data: data.map(entry => entry.y),
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1,
+                fill: false
+              }]
+            },
+            options: {
+              scales: {
+                x: [{
+                  type: 'time',
+                  time: {
+                    unit: 'day',
+                    displayFormats: {
+                      day: 'DD/MM HH[h] mm[m]', // Format pour afficher jour, mois, année, et heure
+                    }
+                  }
+                }],
+                y: [{
+                  ticks: {
+                    beginAtZero: true,
+                    max: 100,
+                    stepSize: 1,
+                  }
+                }]
+              },
+              plugins: {
+                title: {
+                  display: true,
+                  text: title
+              }
+            }
+          }
+        });
+      }
+    });
+  </script>
+{% endblock %}
