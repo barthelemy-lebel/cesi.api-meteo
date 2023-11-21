@@ -62,3 +62,5 @@ class HomeView(View):
 
             return JsonResponse(data)
         return JsonResponse({'error': 'Formulaire non valide'})
+    
+
