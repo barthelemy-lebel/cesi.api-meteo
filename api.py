@@ -8,6 +8,9 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
 
+from fastapi import FastAPI, HTTPException, Query
+from typing import Optional
+
 app = FastAPI()
 
 # Connexion à la base de données SQLite3
@@ -130,14 +133,31 @@ scheduler.add_job(update_data, 'interval', minutes=5)
 
 # Endpoint pour récupérer tous les éléments
 @app.get("/")
-async def main():
+async def main(start_date: Optional[str] = None, end_date: Optional[str] = None, sensor_id: Optional[int] = None):
     try:
-        # Récupération de tous les éléments depuis la base de données
-        cursor.execute('SELECT * FROM HISTORY')
+        # Construction de la requête SQL en fonction des paramètres de date
+        query = 'SELECT * FROM HISTORY'
+        conditions = []
+
+        if start_date and end_date:
+            conditions.append(f"update_time BETWEEN '{start_date}' AND '{end_date}'")
+        elif start_date:
+            conditions.append(f"update_time >= '{start_date}'")
+        elif end_date:
+            conditions.append(f"update_time <= '{end_date}'")
+            
+        if sensor_id is not None:
+            conditions.append(f"sensor_id = {sensor_id}")
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        # Exécution de la requête SQL
+        cursor.execute(query)
         items = cursor.fetchall()
 
         # Conversion des résultats en liste de dictionnaires
-        items_list = [{"id capteur": row[1], "temperature": row[2], "humidity": row[3],"battery": row[4], "signal rssi": row[5], "date": row[6]} for row in items]
+        items_list = [{"id capteur": row[1], "temperature": row[2], "humidity": row[3], "battery": row[4], "signal rssi": row[5], "date": row[6]} for row in items]
 
         return items_list
 
