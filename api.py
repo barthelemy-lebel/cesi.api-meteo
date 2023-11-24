@@ -1,16 +1,13 @@
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Path, Query
+from fastapi.responses import JSONResponse
+from typing import List, Optional
+from pydantic import BaseModel
 import json
 import logging
 import sqlite3
 from datetime import datetime, timedelta
-
 import requests
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import BackgroundTasks, FastAPI, HTTPException
-from pydantic import BaseModel
-
-from fastapi import FastAPI, HTTPException, Query
-from typing import Optional
-from fastapi import Path
 
 app = FastAPI()
 
@@ -135,6 +132,17 @@ scheduler.add_job(update_data, 'interval', minutes=5)
 # Endpoint pour récupérer tous les éléments
 @app.get("/")
 async def main(start_date: Optional[str] = None, end_date: Optional[str] = None, sensor_id: Optional[int] = None):
+    """
+    Récupère les données stockées dans la base de données.
+
+    Parameters:
+    - start_date (Optional[str]): La date de début pour filtrer les données (format ISO).
+    - end_date (Optional[str]): La date de fin pour filtrer les données (format ISO).
+    - sensor_id (Optional[int]): L'ID du capteur pour filtrer les données d'un capteur spécifique.
+
+    Returns:
+    - List[SensorData]: La liste des données récupérées.
+    """
     try:
         # Construction de la requête SQL en fonction des paramètres de date
         query = 'SELECT * FROM HISTORY'
@@ -168,11 +176,27 @@ async def main(start_date: Optional[str] = None, end_date: Optional[str] = None,
 # Endpoint pour forcer une mise à jour immédiate
 @app.get("/force-update")
 async def force_update(background_tasks: BackgroundTasks):
+    """
+    Force une mise à jour immédiate des données à partir du service web externe.
+
+    Returns:
+    - dict: Message indiquant que la mise à jour est en cours.
+    """
     background_tasks.add_task(get_web_service)
     return {"message": "Mise à jour forcée en cours"}
 
 @app.put("/sensor/{sensor_id}/update-name")
 async def update_sensor_name(sensor_id: int = Path(..., title="ID du capteur", ge=1), new_name: str = Query(..., title="Nouveau nom du capteur")):
+    """
+    Met à jour le nom d'un capteur dans la base de données.
+
+    Parameters:
+    - sensor_id (int): L'ID du capteur à mettre à jour.
+    - update_data (SensorUpdate): Les données de mise à jour du capteur.
+
+    Returns:
+    - dict: Message de confirmation de la mise à jour.
+    """
     try:
         # Exécuter la mise à jour du nom du capteur dans la base de données
         cursor.execute("UPDATE SENSOR SET name = ? WHERE id = ?", (new_name, sensor_id))
@@ -186,6 +210,15 @@ async def update_sensor_name(sensor_id: int = Path(..., title="ID du capteur", g
 # Endpoint pour supprimer un capteur
 @app.delete("/sensor/{sensor_id}/delete")
 async def delete_sensor(sensor_id: int = Path(..., title="ID du capteur", ge=1)):
+    """
+    Supprime un capteur de la base de données.
+
+    Parameters:
+    - sensor_id (int): L'ID du capteur à supprimer.
+
+    Returns:
+    - dict: Message de confirmation de la suppression du capteur.
+    """
     try:
         # Exécuter la suppression du capteur dans la base de données
         cursor.execute("DELETE FROM SENSOR WHERE id = ?", (sensor_id,))
