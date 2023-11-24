@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from fastapi import FastAPI, HTTPException, Query
 from typing import Optional
+from fastapi import Path
 
 app = FastAPI()
 
@@ -169,6 +170,32 @@ async def main(start_date: Optional[str] = None, end_date: Optional[str] = None,
 async def force_update(background_tasks: BackgroundTasks):
     background_tasks.add_task(get_web_service)
     return {"message": "Mise à jour forcée en cours"}
+
+@app.put("/sensor/{sensor_id}/update-name")
+async def update_sensor_name(sensor_id: int = Path(..., title="ID du capteur", ge=1), new_name: str = Query(..., title="Nouveau nom du capteur")):
+    try:
+        # Exécuter la mise à jour du nom du capteur dans la base de données
+        cursor.execute("UPDATE SENSOR SET name = ? WHERE id = ?", (new_name, sensor_id))
+        conn.commit()
+
+        return {"message": f"Nom du capteur avec l'ID {sensor_id} mis à jour avec succès"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Endpoint pour supprimer un capteur
+@app.delete("/sensor/{sensor_id}/delete")
+async def delete_sensor(sensor_id: int = Path(..., title="ID du capteur", ge=1)):
+    try:
+        # Exécuter la suppression du capteur dans la base de données
+        cursor.execute("DELETE FROM SENSOR WHERE id = ?", (sensor_id,))
+        conn.commit()
+
+        return {"message": f"Capteur avec l'ID {sensor_id} supprimé avec succès"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 # Au démarrage, démarrer l'ordonnanceur
 @app.on_event("startup")
