@@ -6,13 +6,29 @@ import json
 import logging
 import sqlite3
 from datetime import datetime, timedelta
+#from alert import is_alert, create_table_alert, maj_alert
+
 import requests
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from fastapi import BackgroundTasks, FastAPI, HTTPException
+from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+# Configurer CORS
+origins = ["*"]  # Vous pouvez spécifier les origines autorisées au lieu de "*"
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],  # Vous pouvez spécifier les méthodes autorisées au lieu de "*"
+    allow_headers=["*"],  # Vous pouvez spécifier les en-têtes autorisés au lieu de "*"
+)
+
 # Connexion à la base de données SQLite3
-conn = sqlite3.connect('sensor_data.db')
+conn = sqlite3.connect('api.db')
 cursor = conn.cursor()
 
 # Création de la table si elle n'existe pas
@@ -37,6 +53,8 @@ cursor.execute('''
     );
 ''')
 conn.commit()
+
+#create_table_alert()
 
 def convert_date(date: str) -> str:
     """
@@ -65,7 +83,7 @@ def get_web_service():
     - List[dict]: La liste des données transformées.
     """
     # Connexion à la base de données SQLite3 à l'intérieur de la fonction
-    conn = sqlite3.connect('sensor_data.db')
+    conn = sqlite3.connect('api.db')
     cursor = conn.cursor()
 
     url = f"http://app.objco.com:8099/?account=MRHAOCUYL2&limit=1"
@@ -82,7 +100,7 @@ def get_web_service():
         date = convert_date(date)
         
         cursor.execute('SELECT id FROM SENSOR')
-        list_capteurs = ["6218223","06190485","62190434"]
+        list_capteurs = ["6218223","06190485","06190412"]
         
         for capteur in list_capteurs :
             if capteur in exa_code :
@@ -104,6 +122,8 @@ def get_web_service():
                 humidity = int(tag_info[18:20], 16)
                 if humidity == 255:
                     humidity = None
+                
+                #is_alert(humidity, temperature)
 
                 rssi_signal = int(tag_info[20:22], 16)
 
@@ -174,7 +194,7 @@ async def main(start_date: Optional[str] = None, end_date: Optional[str] = None,
         raise HTTPException(status_code=500, detail=str(e))
 
 # Endpoint pour forcer une mise à jour immédiate
-@app.get("/force-update")
+@app.get("/force-update/")
 async def force_update(background_tasks: BackgroundTasks):
     """
     Force une mise à jour immédiate des données à partir du service web externe.
@@ -184,6 +204,7 @@ async def force_update(background_tasks: BackgroundTasks):
     """
     background_tasks.add_task(get_web_service)
     return {"message": "Mise à jour forcée en cours"}
+
 
 @app.put("/sensor/{sensor_id}/update-name")
 async def update_sensor_name(sensor_id: int = Path(..., title="ID du capteur", ge=1), new_name: str = Query(..., title="Nouveau nom du capteur")):
@@ -229,6 +250,25 @@ async def delete_sensor(sensor_id: int = Path(..., title="ID du capteur", ge=1))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.post("settings/alert/{sensor_id}")
+def set_alert(name, low_humidity, high_humidity, low_temperature, high_temperature, frequence, last_send, email, user_id, sensor_id, list_alerts_id): 
+    """summary :
+    Réccupère les paramètres d'une alerte définies par l'utilisateur et le stock dans la BDD
+    Si l'utilisateur supprime une ou des alertes, list_alerts_id = liste des id des alertes à supprimer
+    """ 
+    if requests.method == 'POST':
+        conn = sqlite3.connect('api.db')
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO Alerts (name, low_humidity, high_humidity, low_temperature, high_temperature, frequence, last_send, email, user_id, sensor_id) "
+                                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                    (name, low_humidity, high_humidity, low_temperature, high_temperature, frequence, last_send, email, user_id, sensor_id))
+        
+        conn.commit()
+        conn.close()
+
+        if len(list_alerts_id) > 0:
+            maj_alert(list_alerts_id, 'DELETE')
 
 # Au démarrage, démarrer l'ordonnanceur
 @app.on_event("startup")
