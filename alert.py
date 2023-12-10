@@ -1,5 +1,6 @@
-import json, sqlite3
 import datetime as dt
+import json
+import sqlite3
 from typing import List
 
 

@@ -1,18 +1,15 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Path, Query
-from fastapi.responses import JSONResponse
-from typing import List, Optional
-from pydantic import BaseModel
 import json
 import logging
 import sqlite3
-from datetime import datetime, timedelta
-#from alert import is_alert, create_table_alert, maj_alert
+from datetime import datetime
+from typing import Optional
 
 import requests
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import BackgroundTasks, FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
+
+from alert import create_table_alert, is_alert, maj_alert
 
 app = FastAPI()
 
@@ -54,9 +51,9 @@ cursor.execute('''
 ''')
 conn.commit()
 
-#create_table_alert()
+create_table_alert()
 
-def convert_date(date: str) -> str:
+def convert_date(date: str) -> str :
     """
     Convertit une date au format '%a, %d %b %Y %H:%M:%S GMT' en format ISO '%Y-%m-%d %H:%M:%S'.
 
@@ -68,9 +65,9 @@ def convert_date(date: str) -> str:
     """
     date_object = datetime.strptime(date, '%a, %d %b %Y %H:%M:%S GMT')
     iso_date = date_object.strftime('%Y-%m-%d %H:%M:%S')
-    return iso_date  
+    return iso_date
 
-def get_web_service():
+def get_web_service() :
     """
     Récupère les données du service web externe, les transforme et les sauvegarde localement.
 
@@ -86,7 +83,9 @@ def get_web_service():
     conn = sqlite3.connect('api.db')
     cursor = conn.cursor()
 
-    url = f"http://app.objco.com:8099/?account=MRHAOCUYL2&limit=1"
+    login = "MRHAOCUYL2"
+
+    url = f"http://app.objco.com:8099/?account={login}&limit=1"
 
     datas = requests.get(url)
     datas.encoding
@@ -98,20 +97,18 @@ def get_web_service():
         exa_code = data[1]
         date = data[2]
         date = convert_date(date)
-        
+
         cursor.execute('SELECT id FROM SENSOR')
-        list_capteurs = ["6218223","06190485","06190412"]
-        
+        list_capteurs = ["6218223", "06190485", "06190412"]
+
         for capteur in list_capteurs :
             if capteur in exa_code :
                 tag_info_index = exa_code.index(capteur)
                 tag_info = exa_code[tag_info_index:tag_info_index+22]
 
                 id_capteur = tag_info[0:7]
-                
-                name = f"sensor-{id_capteur}"
 
-                status = int(tag_info[8:10], 16)
+                name = f"sensor-{id_capteur}"
 
                 battery = int(tag_info[10:14], 16)
                 battery = battery / 1000
@@ -122,17 +119,14 @@ def get_web_service():
                 humidity = int(tag_info[18:20], 16)
                 if humidity == 255:
                     humidity = None
-                
-                #is_alert(humidity, temperature)
+
+                is_alert(humidity, temperature)
 
                 rssi_signal = int(tag_info[20:22], 16)
 
-                sensor_type = 1  # Température
-                name = f"Temp-{id_capteur}"
                 logging.info("La tâche s'est exécutée!")
-                
-                cursor.execute("INSERT INTO HISTORY (sensor_id, temperature, humidity, battery_level, signal_rssi, update_time) "
-                                "VALUES (?, ?, ?, ?, ?, ?)",
+
+                cursor.execute("INSERT INTO HISTORY (sensor_id, temperature, humidity, battery_level, signal_rssi, update_time) VALUES (?, ?, ?, ?, ?, ?)",
                                 (id_capteur, temperature, humidity, battery, rssi_signal, date))
 
         # N'oubliez pas de fermer la connexion
