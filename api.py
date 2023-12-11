@@ -17,14 +17,14 @@ from pydantic import BaseModel
 app = FastAPI()
 
 # Configurer CORS
-origins = ["*"]  # Vous pouvez spécifier les origines autorisées au lieu de "*"
+origins = ["http://127.0.0.1:5500"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Vous pouvez spécifier les méthodes autorisées au lieu de "*"
-    allow_headers=["*"],  # Vous pouvez spécifier les en-têtes autorisés au lieu de "*"
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Connexion à la base de données SQLite3
@@ -98,17 +98,17 @@ def get_web_service():
         exa_code = data[1]
         date = data[2]
         date = convert_date(date)
-        
+
         cursor.execute('SELECT id FROM SENSOR')
         list_capteurs = ["6218223","06190485","06190412"]
-        
+
         for capteur in list_capteurs :
             if capteur in exa_code :
                 tag_info_index = exa_code.index(capteur)
                 tag_info = exa_code[tag_info_index:tag_info_index+22]
 
                 id_capteur = tag_info[0:7]
-                
+
                 name = f"sensor-{id_capteur}"
 
                 status = int(tag_info[8:10], 16)
@@ -122,22 +122,24 @@ def get_web_service():
                 humidity = int(tag_info[18:20], 16)
                 if humidity == 255:
                     humidity = None
-                
-                #is_alert(humidity, temperature)
 
                 rssi_signal = int(tag_info[20:22], 16)
 
-                sensor_type = 1  # Température
-                name = f"Temp-{id_capteur}"
+                name = f"Capteur-{id_capteur}"
                 logging.info("La tâche s'est exécutée!")
-                
+
                 cursor.execute("INSERT INTO HISTORY (sensor_id, temperature, humidity, battery_level, signal_rssi, update_time) "
                                 "VALUES (?, ?, ?, ?, ?, ?)",
                                 (id_capteur, temperature, humidity, battery, rssi_signal, date))
 
+                cursor.execute("INSERT INTO SENSOR (id, name, status) "
+                                "VALUES (?, ?, ?)",
+                                (id_capteur, name, status))
+
         # N'oubliez pas de fermer la connexion
-        conn.commit()
-        conn.close()
+                conn.commit()
+                conn.close()
+
 
 # Créer une instance de l'ordonnanceur
 scheduler = AsyncIOScheduler()
@@ -164,8 +166,8 @@ async def main(start_date: Optional[str] = None, end_date: Optional[str] = None,
     - List[SensorData]: La liste des données récupérées.
     """
     try:
-        # Construction de la requête SQL en fonction des paramètres de date
-        query = 'SELECT * FROM HISTORY'
+        query = 'SELECT HISTORY.*, SENSOR.name FROM HISTORY LEFT JOIN SENSOR ON HISTORY.sensor_id = SENSOR.id'
+
         conditions = []
 
         if start_date and end_date:
@@ -176,7 +178,7 @@ async def main(start_date: Optional[str] = None, end_date: Optional[str] = None,
             conditions.append(f"update_time <= '{end_date}'")
             
         if sensor_id is not None:
-            conditions.append(f"sensor_id = {sensor_id}")
+            conditions.append(f"HISTORY.sensor_id = {sensor_id}")
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -184,9 +186,8 @@ async def main(start_date: Optional[str] = None, end_date: Optional[str] = None,
         # Exécution de la requête SQL
         cursor.execute(query)
         items = cursor.fetchall()
-
         # Conversion des résultats en liste de dictionnaires
-        items_list = [{"id capteur": row[1], "temperature": row[2], "humidity": row[3], "battery": row[4], "signal rssi": row[5], "date": row[6]} for row in items]
+        items_list = [{"sensor_id": row[1], "temperature": row[2], "humidity": row[3], "battery": row[4], "signal_rssi": row[5], "date": row[6], "sensor_name": row[7]} for row in items]
 
         return items_list
 
@@ -204,7 +205,6 @@ async def force_update(background_tasks: BackgroundTasks):
     """
     background_tasks.add_task(get_web_service)
     return {"message": "Mise à jour forcée en cours"}
-
 
 @app.put("/sensor/{sensor_id}/update-name")
 async def update_sensor_name(sensor_id: int = Path(..., title="ID du capteur", ge=1), new_name: str = Query(..., title="Nouveau nom du capteur")):
