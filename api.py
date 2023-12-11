@@ -1,18 +1,18 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Path, Query
-from fastapi.responses import JSONResponse
-from typing import List, Optional
-from pydantic import BaseModel
 import json
 import logging
 import sqlite3
 from datetime import datetime, timedelta
-#from alert import is_alert, create_table_alert, maj_alert
+from typing import List, Optional
 
 import requests
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import BackgroundTasks, FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+#from alert import is_alert, create_table_alert, maj_alert
+
 
 app = FastAPI()
 
@@ -257,18 +257,17 @@ def set_alert(name, low_humidity, high_humidity, low_temperature, high_temperatu
     Réccupère les paramètres d'une alerte définies par l'utilisateur et le stock dans la BDD
     Si l'utilisateur supprime une ou des alertes, list_alerts_id = liste des id des alertes à supprimer
     """ 
-    if requests.method == 'POST':
-        conn = sqlite3.connect('api.db')
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO Alerts (name, low_humidity, high_humidity, low_temperature, high_temperature, frequence, last_send, email, user_id, sensor_id) "
-                                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                                    (name, low_humidity, high_humidity, low_temperature, high_temperature, frequence, last_send, email, user_id, sensor_id))
-        
-        conn.commit()
-        conn.close()
+    conn = sqlite3.connect('api.db')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO Alerts (name, low_humidity, high_humidity, low_temperature, high_temperature, frequence, last_send, email, user_id, sensor_id) "
+                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                                (name, low_humidity, high_humidity, low_temperature, high_temperature, frequence, last_send, email, user_id, sensor_id))
 
-        if len(list_alerts_id) > 0:
-            maj_alert(list_alerts_id, 'DELETE')
+    conn.commit()
+    conn.close()
+
+    #if len(list_alerts_id) > 0:
+    #    maj_alert(list_alerts_id, 'DELETE')
 
 # Au démarrage, démarrer l'ordonnanceur
 @app.on_event("startup")
