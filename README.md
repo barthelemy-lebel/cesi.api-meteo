@@ -27,13 +27,14 @@
 
 ## Introduction
 
-Bienvenue dans la documentation du projet station-meteo. Cette documentation fournit des informations sur la structure du projet, les fonctionnalités principales, les dépendances, et les instructions pour l'installation et la configuration.
+Bienvenue dans la documentation du projet api-meteo. Cette documentation fournit des informations sur la structure du projet, les fonctionnalités principales, les dépendances, et les instructions pour l'installation et la configuration.
 
 ## Structure du Projet
 - **cesi.api-meteo**
     - README.md
     - api.py
     - alert.py
+    - test.py
     - api.db
     - requirements.txt
 
