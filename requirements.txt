@@ -9,6 +9,3 @@ pydantic==1.10.0
 
 # Outils de gestion du temps
 python-dateutil==2.8.2
-
-# Log
-logging==0.5.1
