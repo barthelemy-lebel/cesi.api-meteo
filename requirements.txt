@@ -8,7 +8,7 @@ uvicorn==0.15.0
 pydantic==1.10.0
 
 # Outils de gestion de la base de données
-sqlite==3.0
+sqlite3==3.0
 
 # Outils de gestion du temps
 python-dateutil==2.8.2
